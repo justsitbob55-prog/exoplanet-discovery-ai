@@ -1,0 +1,53 @@
+# Default configuration for Exoplanet Discovery & Light-Curve Anomaly Detector
+# This file demonstrates all available configuration options with sensible defaults.
+# To customize, modify values as needed and pass the path to ProjectConfig.from_yaml()
+
+project_name: exoplanet-discovery
+version: "0.1.0"
+debug: false
+
+# Data ingestion and storage configuration
+data:
+  raw_data_dir: data/raw
+  processed_data_dir: data/processed
+  external_data_dir: data/external
+  max_nan_fraction: 0.2  # Reject light curves with >20% missing data
+  max_consecutive_nans: 100  # Max consecutive NaN points before rejection
+
+# Light-curve preprocessing configuration
+preprocessing:
+  normalize: true
+  normalization_percentile: 95.0
+  detrend: true
+  polynomial_order: 3
+  sigma_clip: true
+  sigma_threshold: 5.0  # Remove outliers beyond 5 sigma
+  interpolate_gaps: true
+
+# Feature extraction from light curves
+feature_extraction:
+  n_features: 32
+  n_wavelets: 8
+  use_statistical_features: true
+  use_frequency_features: true
+  use_morphological_features: true
+
+# Transit and anomaly detection configuration
+detection:
+  min_snr: 3.0  # 3-sigma minimum detection threshold
+  min_transit_depth: 0.0001  # 0.01% minimum depth
+  max_transit_depth: 1.0  # 100% maximum depth
+  min_transit_duration_hours: 0.5
+  max_transit_duration_hours: 100.0
+  confidence_threshold: 0.7  # Accept detections with confidence >= 70%
+
+# Model training configuration
+training:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 0.001
+  train_test_split: 0.8
+  validation_split: 0.1
+  random_seed: 42
+  checkpoint_dir: models/checkpoints
+  early_stopping_patience: 10

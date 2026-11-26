@@ -1,0 +1,68 @@
+# Python environments and generated files
+.venv*/
+venv/
+env/
+virtualenv/
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+.tox/
+.nox/
+.hypothesis/
+pip-wheel-metadata/
+
+# Python testing and tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+htmlcov/
+
+# Jupyter and notebooks
+.ipynb_checkpoints/
+
+# VS Code workspace-local files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local data, downloads, and generated results
+/data/cache/
+/data/raw/*
+!/data/raw/.gitkeep
+/data/processed/*
+!/data/processed/.gitkeep
+/data/external/*
+!/data/external/.gitkeep
+/data/exports/*
+!/data/exports/.gitkeep
+/data/*.db
+/data/*.db-*
+/data/*.sqlite*
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Logs, temporary files, and OS metadata
+*.log
+*.log.*
+*.tmp
+*.temp
+*.bak
+*.swp
+Thumbs.db
+.DS_Store
+
+# Python build artifacts
+*.whl
+*.egg

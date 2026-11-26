@@ -1,0 +1,179 @@
+{
+  "class_distribution": {
+    "overall": {
+      "0": 7,
+      "1": 8
+    },
+    "test": {
+      "0": 1,
+      "1": 2
+    },
+    "train": {
+      "0": 6,
+      "1": 6
+    }
+  },
+  "confusion_matrix": {
+    "fn": 2,
+    "fp": 0,
+    "labels": [
+      0,
+      1
+    ],
+    "matrix": [
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "tn": 1,
+    "tp": 0
+  },
+  "dataset_provenance": {
+    "feature_extraction": "existing src.exoplanet_discovery.features.extractor.extract_features (25 features, stable order)",
+    "label_query": "select kepid,kepoi_name,kepler_name,koi_disposition from cumulative where koi_disposition in ('CONFIRMED','FALSE POSITIVE')",
+    "label_source": "NASA Exoplanet Archive KOI cumulative table (koi_disposition)",
+    "light_curve_source": "Kepler mission light curves retrieved via Lightkurve/download_light_curve using existing ingestion pipeline",
+    "no_synthetic_training_data": true,
+    "preprocessing": "existing src.exoplanet_discovery.preprocessing.pipeline.preprocess_light_curve",
+    "records_artifact": "C:\\Users\\Sitij\\Downloads\\Exoplanet - Discovery\\data\\processed\\koi\\kepler_koi_records.json"
+  },
+  "evaluation_note": "Metrics computed on genuine held-out Kepler KOI-labelled light curves (group split by kepid). Reliability depends on successfully processed sample size and class balance; see sample counts and class distribution.",
+  "feature_names": [
+    "mean",
+    "std",
+    "median",
+    "mad",
+    "skewness",
+    "kurtosis",
+    "minimum",
+    "maximum",
+    "range",
+    "q10",
+    "q90",
+    "iqr",
+    "flux_snr",
+    "cadence_count",
+    "duration_days",
+    "variability_rms",
+    "negative_outlier_fraction",
+    "positive_outlier_fraction",
+    "period_days",
+    "periodogram_power",
+    "periodogram_mean",
+    "lowest_flux_fraction",
+    "autocorrelation_lag1",
+    "acf_variability",
+    "frequency_energy",
+    "dominant_frequency"
+  ],
+  "label_definition": {
+    "excluded": [
+      "CANDIDATE",
+      "NOT DISPOSITIONED",
+      "uncertain/conflicting kepid dispositions"
+    ],
+    "negative": {
+      "koi_disposition": "FALSE POSITIVE",
+      "value": 0
+    },
+    "positive": {
+      "koi_disposition": "CONFIRMED",
+      "value": 1
+    }
+  },
+  "metrics": {
+    "accuracy": 0.3333333333333333,
+    "f1": 0.0,
+    "fn": 2.0,
+    "fp": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "roc_auc": 0.5,
+    "tn": 1.0,
+    "tp": 0.0
+  },
+  "model_name": "Random Forest",
+  "model_type": "RandomForestClassifier",
+  "run_context": {
+    "class_distribution_processed_selected": {
+      "0": 7,
+      "1": 8
+    },
+    "generated_at": "2026-11-24T11:38:29+00:00",
+    "genuine_labelled_targets_acquired_catalogue": 6594,
+    "koi_csv": "C:\\Users\\Sitij\\Downloads\\Exoplanet - Discovery\\data\\external\\koi\\koi_dispositions.csv",
+    "label_summary": {
+      "class_counts_by_kepid": {
+        "CONFIRMED": 1928,
+        "FALSE POSITIVE": 4666
+      },
+      "duplicate_koi_rows_collapsed": 872,
+      "eligible_dispositions": [
+        "CONFIRMED",
+        "FALSE POSITIVE"
+      ],
+      "excluded_conflicting_kepid_examples": [
+        2438513,
+        2716853,
+        3348082,
+        3662838,
+        3832474,
+        4548011,
+        5351250,
+        5446285,
+        6592335,
+        6609270,
+        6678383,
+        7021681,
+        7047363,
+        7115785,
+        7269493,
+        7584650,
+        7935997,
+        8030339,
+        8219268,
+        8397947
+      ],
+      "excluded_conflicting_kepids": 47,
+      "excluded_uncertain_or_not_dispositioned_note": "Query filtered to CONFIRMED/FALSE POSITIVE only; CANDIDATE and NOT DISPOSITIONED excluded.",
+      "source_rows": 7587,
+      "unique_kepids_with_consistent_label": 6594
+    },
+    "records_path": "C:\\Users\\Sitij\\Downloads\\Exoplanet - Discovery\\data\\processed\\koi\\kepler_koi_records.json",
+    "selected_targets_for_processing": 6594,
+    "selection": {
+      "selected_class_counts": {
+        "0": 4666,
+        "1": 1928
+      },
+      "selected_targets": 6594,
+      "selection_limit": null,
+      "selection_max_per_class": null,
+      "selection_seed": 42
+    },
+    "successfully_processed_light_curves_selected": 15,
+    "successfully_processed_light_curves_total_records": 15
+  },
+  "sample_counts": {
+    "test_groups": 3,
+    "test_samples": 3,
+    "total_samples": 15,
+    "train_groups": 12,
+    "train_samples": 12
+  },
+  "split": {
+    "leakage_group_overlap_count": 0,
+    "level": "star/target group (kepid)",
+    "method": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "seed": 42,
+    "test_size_requested": 0.25
+  },
+  "trained_at": "2026-11-24T11:38:30+00:00",
+  "training_status": "trained"
+}
