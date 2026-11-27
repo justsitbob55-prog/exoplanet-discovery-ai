@@ -2,19 +2,83 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Protocol
 
 import lightkurve as lk
 import numpy as np
 import pandas as pd
 from astropy.table import Row
+from astroquery.mast import Conf as MastConf
+from astroquery.mast import Mast, Observations
 
 from ..common.exceptions import IngestionError
 from ..common.models import LightCurve
 from .loader import from_lightkurve
 
 Mission = Literal["Kepler", "TESS"]
+_IS_RENDER = os.getenv("RENDER", "").lower() == "true"
+
+
+class _RequestSession(Protocol):
+    request: Callable[..., Any]
+
+
+def _mast_timeout_seconds() -> int:
+    default = "90" if _IS_RENDER else "600"
+    value = os.getenv("EXOPLANET_MAST_TIMEOUT_SECONDS", default)
+    try:
+        timeout = int(value)
+    except ValueError as exc:
+        raise ValueError("EXOPLANET_MAST_TIMEOUT_SECONDS must be an integer.") from exc
+    if not 1 <= timeout <= 600:
+        raise ValueError("EXOPLANET_MAST_TIMEOUT_SECONDS must be between 1 and 600.")
+    return timeout
+
+
+MAST_REQUEST_TIMEOUT_SECONDS = _mast_timeout_seconds()
+
+
+def _set_default_request_timeout(session: _RequestSession, timeout_seconds: int) -> None:
+    original_request = session.request
+
+    def request_with_timeout(method: str, url: str, **kwargs: Any) -> Any:
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = (10, timeout_seconds)
+        return original_request(method, url, **kwargs)
+
+    session.request = request_with_timeout
+
+
+def _configure_render_mast_timeouts() -> None:
+    MastConf.timeout = MAST_REQUEST_TIMEOUT_SECONDS
+    sessions = (Mast._session, Observations._session)
+    for index, session in enumerate(sessions):
+        if any(session is earlier for earlier in sessions[:index]):
+            continue
+        _set_default_request_timeout(session, MAST_REQUEST_TIMEOUT_SECONDS)
+
+    for client in (Mast, Observations):
+        for connection_name in ("_portal_api_connection", "_service_api_connection"):
+            connection = getattr(client, connection_name, None)
+            if connection is not None:
+                connection.TIMEOUT = MAST_REQUEST_TIMEOUT_SECONDS
+
+
+if _IS_RENDER:
+    _configure_render_mast_timeouts()
+
+
+def archive_cache_dir() -> Path | None:
+    configured = os.getenv("EXOPLANET_ARCHIVE_CACHE_DIR")
+    if configured:
+        return Path(configured).expanduser()
+    if _IS_RENDER:
+        return Path(tempfile.gettempdir()) / "exoplanet-discovery-lightkurve-cache"
+    return None
 
 
 def _search_value(row: Row, column: str, default: str) -> str:
@@ -66,7 +130,10 @@ def search_light_curve(
 ) -> lk.LightCurve:
     """Search and download a mission light curve through Lightkurve."""
     try:
-        cache = str(cache_dir) if cache_dir is not None else None
+        cache_path = Path(cache_dir).expanduser() if cache_dir is not None else None
+        if cache_path is not None:
+            cache_path.mkdir(parents=True, exist_ok=True)
+        cache = str(cache_path) if cache_path is not None else None
         if mission == "TESS":
             search = lk.search_lightcurve(target, mission="TESS", sector=sector, cadence="long")
         else:
@@ -83,9 +150,10 @@ def search_light_curve(
     except IngestionError:
         raise
     except Exception as exc:
+        detail = str(exc).strip() or type(exc).__name__
         raise IngestionError(
             f"Could not access the {mission} archive. "
-            "Network/mission availability may be unavailable."
+            f"Network/mission availability may be unavailable. Details: {detail}"
         ) from exc
 
 

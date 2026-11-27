@@ -1,6 +1,8 @@
 """Focused tests for light-curve ingestion and preprocessing."""
 
+import tempfile
 from io import BytesIO
+from pathlib import Path
 
 import lightkurve as lk
 import numpy as np
@@ -144,6 +146,91 @@ def test_search_targets_preserves_archive_error_details(
     assert isinstance(error.value.__cause__, RuntimeError)
 
 
+def test_search_light_curve_creates_and_uses_requested_cache_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    expected_curve = lk.LightCurve(time=np.arange(3), flux=np.ones(3))
+    cache_dir = tmp_path / "cache" / "mast"
+    calls: list[str | None] = []
+
+    class SearchResultStub:
+        def __len__(self) -> int:
+            return 1
+
+        def download_all(self, *, download_dir: str | None) -> list[lk.LightCurve]:
+            calls.append(download_dir)
+            return [expected_curve]
+
+    monkeypatch.setattr(
+        archive.lk,
+        "search_lightcurve",
+        lambda *args, **kwargs: SearchResultStub(),
+    )
+
+    result = archive.search_light_curve("TIC-123", cache_dir=cache_dir)
+
+    assert result is expected_curve
+    assert cache_dir.is_dir()
+    assert calls == [str(cache_dir)]
+
+
+def test_render_timeout_wrapper_applies_timeout_only_when_missing() -> None:
+    calls: list[object] = []
+
+    class SessionStub:
+        def request(self, method: str, url: str, **kwargs: object) -> str:
+            calls.append(kwargs.get("timeout"))
+            return "response"
+
+    session = SessionStub()
+    archive._set_default_request_timeout(session, 45)
+
+    assert session.request("GET", "https://example.test/") == "response"
+    assert session.request("GET", "https://example.test/", timeout=5) == "response"
+    assert calls == [(10, 45), 5]
+
+
+def test_render_archive_defaults_are_limited_to_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("EXOPLANET_MAST_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("EXOPLANET_ARCHIVE_CACHE_DIR", raising=False)
+
+    monkeypatch.setattr(archive, "_IS_RENDER", True)
+    assert archive._mast_timeout_seconds() == 90
+    assert archive.archive_cache_dir() == (
+        Path(tempfile.gettempdir()) / "exoplanet-discovery-lightkurve-cache"
+    )
+
+    monkeypatch.setattr(archive, "_IS_RENDER", False)
+    assert archive._mast_timeout_seconds() == 600
+    assert archive.archive_cache_dir() is None
+
+
+def test_gradio_archive_download_is_queued_and_serialized() -> None:
+    from app import gradio_app
+
+    handlers = [
+        function
+        for function in gradio_app.app.fns.values()
+        if getattr(function.fn, "__name__", "") == "archive_download"
+    ]
+
+    assert len(handlers) == 1
+    assert handlers[0].concurrency_limit == 1
+    assert handlers[0].concurrency_id == "nasa-archive-download"
+    assert handlers[0].trigger_mode == "once"
+
+    event = next(
+        dependency
+        for dependency in gradio_app.app.get_config_file()["dependencies"]
+        if dependency.get("api_name") == "archive_download"
+    )
+    assert event["queue"] is True
+    assert len(event["outputs"]) == 3
+
+
 def test_preprocessing_removes_spike_detrends_and_normalizes() -> None:
     time = np.linspace(0, 10, 100)
     flux = 1000 + time * 0.5
@@ -183,20 +270,38 @@ def test_gradio_download_returns_preview_status_and_state(
     from app import gradio_app
 
     curve = create_demo_light_curve("TIC-DOWNLOADED")
+    progress_updates: list[str] = []
 
-    def fake_download(target: str, mission: str, sector: int | None = None) -> object:
+    def fake_download(
+        target: str,
+        mission: str,
+        sector: int | None = None,
+        cache_dir: str | Path | None = None,
+    ) -> object:
         assert target == "TIC-123"
         assert mission == "TESS"
         assert sector == 7
+        assert cache_dir == archive.archive_cache_dir()
         return curve
+
+    class ProgressStub:
+        def __call__(self, value: float, desc: str) -> None:
+            progress_updates.append(desc)
 
     monkeypatch.setattr(gradio_app, "download_light_curve", fake_download)
 
-    frame, status, state = gradio_app.archive_download(" TIC-123 ", "TESS", "7")
+    frame, status, state = gradio_app.archive_download(
+        " TIC-123 ", "TESS", "7", progress=ProgressStub()
+    )
 
     assert len(frame) == len(curve)
     assert "TIC-123" in status
     assert state is curve
+    assert progress_updates == [
+        "Connecting to NASA MAST",
+        "Preparing light-curve preview",
+        "Preview ready",
+    ]
 
 
 def test_gradio_download_caps_large_preview_but_keeps_full_curve_state(

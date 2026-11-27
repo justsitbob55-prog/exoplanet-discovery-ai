@@ -27,6 +27,7 @@ from src.exoplanet_discovery.common.persistence import ResultStore
 from src.exoplanet_discovery.detection.transit import detect_transits
 from src.exoplanet_discovery.features.extractor import extract_features
 from src.exoplanet_discovery.ingestion.archive import (
+    archive_cache_dir,
     create_demo_light_curve,
     download_light_curve,
     search_targets,
@@ -889,6 +890,7 @@ def archive_download(
     target: str,
     mission: str,
     sector: str,
+    progress: gr.Progress = _GRADIO_PROGRESS,
 ) -> tuple[pd.DataFrame, str, LightCurve | None]:
     if not target.strip():
         return (
@@ -898,7 +900,14 @@ def archive_download(
         )
     sector_value = int(sector) if sector.strip().isdigit() else None
     try:
-        curve = download_light_curve(target.strip(), mission, sector=sector_value)  # type: ignore[arg-type]
+        progress(0.05, desc="Connecting to NASA MAST")
+        curve = download_light_curve(
+            target.strip(),
+            mission,
+            sector=sector_value,
+            cache_dir=archive_cache_dir(),
+        )  # type: ignore[arg-type]
+        progress(0.85, desc="Preparing light-curve preview")
         preview = downsample_light_curve(curve, MAX_PLOT_CADENCES)
         frame = pd.DataFrame(
             {
@@ -914,6 +923,7 @@ def archive_download(
             len(curve),
             len(preview),
         )
+        progress(1.0, desc="Preview ready")
         return (
             frame,
             f"Downloaded {mission} data for {target}; {len(curve)} cadences "
@@ -921,6 +931,7 @@ def archive_download(
             curve,
         )
     except Exception as exc:
+        progress(1.0, desc="NASA archive request failed")
         logger.exception("NASA archive download failed for %s", target)
         return pd.DataFrame([{"error": str(exc)}]), f"NASA archive unavailable: {exc}", None
 
@@ -1103,6 +1114,9 @@ def _build_app() -> gr.Blocks:
                     archive_download,
                     [target, mission, sector],
                     [downloaded, download_status, downloaded_curve],
+                    trigger_mode="once",
+                    concurrency_limit=1,
+                    concurrency_id="nasa-archive-download",
                 )
 
             with gr.Tab("Light Curve Analysis", id="analysis"):

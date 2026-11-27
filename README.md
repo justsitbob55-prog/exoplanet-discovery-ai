@@ -52,6 +52,12 @@ Open: `http://localhost:7860`
 
 Hugging Face Spaces entry point: `app.py` (exposes `app` from `app.gradio_app`).
 
+#### Render archive requests
+
+When `RENDER=true` is present, MAST network requests use a 10-second connect timeout and a 90-second read/request timeout. This bounds stalled NASA requests without changing the existing local timeout behavior. The archive cache uses the system temporary directory by default on Render; set `EXOPLANET_ARCHIVE_CACHE_DIR` to use another writable directory.
+
+To adjust the Render timeout, set `EXOPLANET_MAST_TIMEOUT_SECONDS` to an integer from 1 to 600. If not set, Render uses 90 seconds and local runs retain the Astroquery default. Redeploy the service after applying the code changes; the start command remains `python -m app.gradio_app`.
+
 ### Optional FastAPI + React interface (existing, separate)
 
 The repository also includes an existing FastAPI backend and React frontend. They are separate from the Gradio dashboard and are not required to use the primary interface.
